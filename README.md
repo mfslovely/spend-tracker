@@ -42,6 +42,8 @@ pytest
 | `GET /expenses` | List expenses; optional `category`, `start_date`, and `end_date` filters |
 | `GET /summary` | Return total spend, category totals, month-over-month spend, and relevant 20% increase insights |
 
+When `API_KEY` is configured, `/expenses` and `/summary` require the key in the `X-API-Key` request header. `GET /health` remains public for platform health checks.
+
 Example:
 
 ```bash

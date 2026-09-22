@@ -46,3 +46,13 @@ def test_summary_and_mom_change(client):
 def test_invalid_date_range(client):
     response = client.get("/expenses?start_date=2026-10-01&end_date=2026-09-01")
     assert response.status_code == 400
+
+
+def test_api_key_authentication(tmp_path):
+    app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "auth.sqlite"), "API_KEY": "test-secret"})
+    client = app.test_client()
+
+    assert client.get("/summary").status_code == 401
+    assert client.get("/summary", headers={"X-API-Key": "wrong"}).status_code == 401
+    assert client.get("/summary", headers={"X-API-Key": "test-secret"}).status_code == 200
+    assert client.get("/health").status_code == 200

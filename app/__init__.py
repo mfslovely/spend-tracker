@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import hmac
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
@@ -29,6 +30,14 @@ def create_app(test_config=None):
     if test_config:
         app.config.update(test_config)
     os.makedirs(app.instance_path, exist_ok=True)
+
+    @app.before_request
+    def require_api_key():
+        expected = app.config.get("API_KEY") or os.environ.get("API_KEY")
+        if expected and request.path in {"/expenses", "/summary"}:
+            supplied = request.headers.get("X-API-Key", "")
+            if not hmac.compare_digest(supplied, expected):
+                return jsonify(error="A valid API key is required."), 401
 
     def db():
         return _connect(app.config["DATABASE"])
@@ -173,5 +182,9 @@ def create_app(test_config=None):
     @app.get("/")
     def index():
         return app.send_static_file("index.html")
+
+    @app.get("/health")
+    def health():
+        return jsonify(status="ok")
 
     return app
