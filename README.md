@@ -6,6 +6,17 @@ A small expense-tracking service built for the Infinity Consultants backend eval
 
 Requires Python 3.10+.
 
+### Windows PowerShell (recommended)
+
+```powershell
+.\scripts\build.ps1
+.\scripts\run.ps1
+```
+
+If PowerShell blocks the scripts for this session, run `Set-ExecutionPolicy -Scope Process Bypass` first.
+
+### Manual setup
+
 ```bash
 python -m venv .venv
 .venv\\Scripts\\activate
