@@ -26,6 +26,8 @@ python run.py
 
 Open `http://127.0.0.1:5000`. The SQLite database is created automatically at `instance/spend_tracker.sqlite3`.
 
+When `DATABASE_URL` is set, the app uses PostgreSQL instead. Production runs with Gunicorn using `gunicorn run:app`.
+
 Run the tests with:
 
 ```bash

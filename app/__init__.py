@@ -6,23 +6,42 @@ from decimal import Decimal, InvalidOperation
 from flask import Flask, jsonify, request
 
 
+def _is_postgres(database):
+    return database.startswith(("postgres://", "postgresql://"))
+
+
+def _connect(database):
+    if _is_postgres(database):
+        import psycopg
+        from psycopg.rows import dict_row
+
+        return psycopg.connect(database, row_factory=dict_row)
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
 def create_app(test_config=None):
     app = Flask(__name__, static_folder="static", static_url_path="")
-    app.config.from_mapping(DATABASE=os.path.join(app.instance_path, "spend_tracker.sqlite3"))
+    app.config.from_mapping(
+        DATABASE=os.environ.get("DATABASE_URL", os.path.join(app.instance_path, "spend_tracker.sqlite3"))
+    )
     if test_config:
         app.config.update(test_config)
     os.makedirs(app.instance_path, exist_ok=True)
 
     def db():
-        connection = sqlite3.connect(app.config["DATABASE"])
-        connection.row_factory = sqlite3.Row
-        return connection
+        return _connect(app.config["DATABASE"])
+
+    def placeholders(sql):
+        return sql.replace("?", "%s") if _is_postgres(app.config["DATABASE"]) else sql
 
     def initialize_database():
         connection = db()
-        connection.execute("""
+        id_column = "BIGSERIAL PRIMARY KEY" if _is_postgres(app.config["DATABASE"]) else "INTEGER PRIMARY KEY AUTOINCREMENT"
+        connection.execute(f"""
             CREATE TABLE IF NOT EXISTS expenses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_column},
                 amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
                 category TEXT NOT NULL CHECK (length(category) BETWEEN 1 AND 80),
                 note TEXT NOT NULL DEFAULT '' CHECK (length(note) <= 500),
@@ -71,7 +90,7 @@ def create_app(test_config=None):
             params.append(end)
         sql += " ORDER BY expense_date DESC, id DESC"
         connection = db()
-        rows = connection.execute(sql, params).fetchall()
+        rows = connection.execute(placeholders(sql), params).fetchall()
         connection.close()
         return rows
 
@@ -101,10 +120,18 @@ def create_app(test_config=None):
         except ValueError as exc:
             return error(str(exc))
         connection = db()
-        cursor = connection.execute("INSERT INTO expenses (amount_cents, category, note, expense_date) VALUES (?, ?, ?, ?)",
-                                    (int(amount * 100), category.strip(), note.strip(), expense_date))
+        values = (int(amount * 100), category.strip(), note.strip(), expense_date)
+        if _is_postgres(app.config["DATABASE"]):
+            row = connection.execute(
+                "INSERT INTO expenses (amount_cents, category, note, expense_date) VALUES (%s, %s, %s, %s) RETURNING *",
+                values,
+            ).fetchone()
+        else:
+            cursor = connection.execute(
+                "INSERT INTO expenses (amount_cents, category, note, expense_date) VALUES (?, ?, ?, ?)", values
+            )
+            row = connection.execute("SELECT * FROM expenses WHERE id = ?", (cursor.lastrowid,)).fetchone()
         connection.commit()
-        row = connection.execute("SELECT * FROM expenses WHERE id = ?", (cursor.lastrowid,)).fetchone()
         connection.close()
         return jsonify(expense_json(row)), 201
 
@@ -137,7 +164,7 @@ def create_app(test_config=None):
         insights = [f"{name} spend is up {round((sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(current_prefix)) / sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(previous_prefix)) - 1) * 100)}% month-over-month."
                     for name in by_category
                     if sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(previous_prefix)) > 0
-                    and sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(current_prefix)) > sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(previous_prefix)) * 1.2]
+                    and sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(current_prefix)) >= sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(previous_prefix)) * 1.2]
         return jsonify(total_spend=total_cents / 100,
                        spend_by_category={key: value / 100 for key, value in sorted(by_category.items())},
                        month_over_month={"current_month": current / 100, "previous_month": previous / 100, "percent_change": change},
