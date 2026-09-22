@@ -33,14 +33,14 @@ def test_rejects_invalid_expense(client, payload):
 
 
 def test_summary_and_mom_change(client):
-    expense(client, "120", "Food", "2026-09-05")
+    expense(client, "121", "Food", "2026-09-05")
     expense(client, "100", "Food", "2026-08-05")
     expense(client, "30", "Travel", "2026-09-12")
     summary = client.get("/summary").json
-    assert summary["total_spend"] == 250
-    assert summary["spend_by_category"] == {"Food": 220, "Travel": 30}
-    assert summary["month_over_month"]["percent_change"] == 50
-    assert "Food spend is up 20% month-over-month." in summary["insights"]
+    assert summary["total_spend"] == 251
+    assert summary["spend_by_category"] == {"Food": 221, "Travel": 30}
+    assert summary["month_over_month"]["percent_change"] == 51
+    assert "Food spend is up 21% month-over-month." in summary["insights"]
 
 
 def test_invalid_date_range(client):

@@ -173,7 +173,7 @@ def create_app(test_config=None):
         insights = [f"{name} spend is up {round((sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(current_prefix)) / sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(previous_prefix)) - 1) * 100)}% month-over-month."
                     for name in by_category
                     if sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(previous_prefix)) > 0
-                    and sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(current_prefix)) >= sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(previous_prefix)) * 1.2]
+                    and sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(current_prefix)) > sum(r['amount_cents'] for r in rows if r['category'] == name and r['expense_date'].startswith(previous_prefix)) * 1.2]
         return jsonify(total_spend=total_cents / 100,
                        spend_by_category={key: value / 100 for key, value in sorted(by_category.items())},
                        month_over_month={"current_month": current / 100, "previous_month": previous / 100, "percent_change": change},
