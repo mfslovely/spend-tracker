@@ -56,3 +56,10 @@ def test_api_key_authentication(tmp_path):
     assert client.get("/summary", headers={"X-API-Key": "wrong"}).status_code == 401
     assert client.get("/summary", headers={"X-API-Key": "test-secret"}).status_code == 200
     assert client.get("/health").status_code == 200
+
+
+def test_ui_uses_rupees_and_note_tooltips(client):
+    page = client.get("/").get_data(as_text=True)
+
+    assert "currency:'INR'" in page
+    assert 'class="spend" title=' in page
